@@ -342,8 +342,8 @@ jobs:
           # Remove check_defconfig
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
-          cp ../../kernel_patches_additional/a14_fake_config_fix.patch ./common
           cd common
+          cp ../../kernel_patches_additional/a14_fake_config_fix.patch .
           patch -p1 -F 3 < a14_fake_config_fix.patch
 
       - name: Change Kernel Name
