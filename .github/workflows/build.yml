@@ -343,8 +343,8 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
           cd common
-          cp ../../kernel_patches_additional/a14_fake_config_fix.patch .
-          patch -p1 -F 3 < a14_fake_config_fix.patch
+          cp ../../kernel_patches_additional/fake_config.patch .
+          patch -p1 -F 3 < fake_config.patch
 
       - name: Change Kernel Name
         run: |
