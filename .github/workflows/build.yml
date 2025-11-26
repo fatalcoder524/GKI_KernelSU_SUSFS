@@ -258,7 +258,7 @@ jobs:
           cd "$KERNEL_ROOT"
           
           # Apply compatibility fixes
-          SUSFS_VERSION="1.5.12"
+          # SUSFS_VERSION="1.5.12"
 
           cp "$SUSFS4KSU/kernel_patches/fs/"* "$KERNEL_ROOT/common/fs/"
           cp "$SUSFS4KSU/kernel_patches/include/linux/"* "$KERNEL_ROOT/common/include/linux/"
@@ -347,6 +347,7 @@ jobs:
           patch -p1 -F 3 < scope_min_manual_hooks_v1.4.patch
 
       - name: Apply Performance Patches
+        if: ${{ inputs.ksu_variant == 'WKSU' }}
         run: |
           cd "$KERNEL_ROOT/common"
           MIN_VERSION="5.16"
@@ -376,7 +377,7 @@ jobs:
       - name: Apply Module Check Bypass
         if: ${{ matrix.build_type == 'bypass' }}
         run: |
-          if [[ "${{ inputs.kernel_version }}" == "6.1" || "${{ inputs.kernel_version }}" == "6.6" ]]; then
+          if [[ "${{ inputs.kernel_version }}" == "6.1" || "${{ inputs.kernel_version }}" == "6.6" || "${{ inputs.kernel_version }}" == "6.12" ]]; then
             cd "$KERNEL_ROOT/common/kernel/module"
             sed -i '/bad_version:/{:a;n;/return 0;/{s/return 0;/return 1;/;b};ba}' version.c
           else
@@ -410,6 +411,11 @@ jobs:
           
           # Remove check_defconfig
           sed -i 's/check_defconfig//' ./common/build.config.gki
+          
+          if [[ "${{ inputs.kernel_version }}" == "6.12" ]]; then
+            # sed -i 's/check_defconfig_minimized = True/check_defconfig_minimized = False/' ./common/BUILD.bazel
+            sed -i '/check_defconfig = select({/,/}/c\        check_defconfig = "disabled"' ./build/kernel/kleaf/common_kernels.bzl
+          fi
 
       - name: Configure KernelSU Core
         run: |
@@ -482,17 +488,17 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "${{ env.DEFCONFIG }}"
-
+          
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "${{ env.DEFCONFIG }}"
-
+          
           echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "${{ env.DEFCONFIG }}"
-
+          
           echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "${{ env.DEFCONFIG }}"
@@ -622,10 +628,12 @@ jobs:
           set -x
           cd "$KERNEL_ROOT"
           echo "Building the kernel..."
+          export RUST_LOG=debug
+          export RUST_BACKTRACE=1
           if [ -f "build/build.sh" ]; then
             LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh || exit 1
           else
-            tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist || exit 1
+            tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist --verbose_failures || exit 1
           fi
 
       - name: Prepare AnyKernel3
@@ -720,7 +728,7 @@ jobs:
           cp "$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/Image.lz4" ./bootimgs
           cp "$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/Image" ./${{ env.FILE_NAME }}-Image
           cp "$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/Image.lz4" ./${{ env.FILE_NAME }}-Image.lz4
-
+          
           # Create gzip of the Image file
           gzip -n -k -f -9 ./${{ env.FILE_NAME }}-Image > ./${{ env.FILE_NAME }}-Image.gz
           gzip -n -k -f -9 ./bootimgs/Image > ./bootimgs/Image.gz
